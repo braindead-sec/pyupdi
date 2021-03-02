@@ -68,6 +68,7 @@ def _main():
                         help="Perform a chip erase (implied with --flash)")
     parser.add_argument("-b", "--baudrate", type=int, default=115200)
     parser.add_argument("-f", "--flash", help="Intel HEX file to flash.")
+    parser.add_argument("-du", "--dump", help="Dump flash memory to binary file.")
     parser.add_argument("-r", "--reset", action="store_true",
                         help="Reset")
     parser.add_argument("-i", "--info", action="store_true",
@@ -81,8 +82,8 @@ def _main():
 
     args = parser.parse_args(sys.argv[1:])
 
-    if not any( (args.fuses, args.flash, args.erase, args.reset, args.readfuses, args.info) ):
-        print("No action (erase, flash, reset, fuses or info)")
+    if not any( (args.fuses, args.flash, args.dump, args.erase, args.reset, args.readfuses, args.info) ):
+        print("No action (erase, flash, dump, reset, fuses or info)")
         sys.exit(0)
 
     if args.verbose:
@@ -130,11 +131,28 @@ def _process(nvm, args):
                 value = int(lst[1], 16)
                 if not _set_fuse(nvm, fusenum, value):
                     return False
+    if args.dump is not None:
+        return _dump_file(nvm, args.dump)
     if args.flash is not None:
         return _flash_file(nvm, args.flash)
     if args.readfuses:
         if not _read_fuses(nvm):
             return False
+    return True
+
+
+def _dump_file(nvm, filename):
+
+    # Read data
+    print("Reading data")
+    data = nvm.read_flash(nvm.device.flash_start, nvm.device.flash_size)
+
+    # Write out to file
+    print("Writing file")
+    with open(filename, 'wb') as outfile:
+        outfile.write(bytearray(data))
+    print("Dump successful")
+
     return True
 
 
@@ -157,7 +175,6 @@ def _flash_file(nvm, filename):
     if not fail:
         print("Programming successful")
     return not fail
-
 
 def _set_fuse(nvm, fusenum, value):
     nvm.write_fuse(fusenum, value)
